@@ -7,27 +7,32 @@ import heapq
 
 df_puerto = pd.read_excel("Plantilla - Base de problemas.xlsx", sheet_name="P4-Datos")
 
-def grafo_completo(df_puerto):
+#def grafo_completo(df_puerto):
     
-    grafo = nx.DiGraph()
+#    grafo = nx.DiGraph()
     
-    for _, row in df_puerto.iterrows():
+#    for _, row in df_puerto.iterrows():
         
-        origen = row["Nodo salida"]
-        destino = row["Nodo llegada"]
-        distancia = row["Distancia (km)"] # en km
-        tiempo = row["Tiempo (h)"] # en horas
+#        origen = row["Nodo salida"]
+#        destino = row["Nodo llegada"]
+#        distancia = row["Distancia (km)"] # en km
+#        tiempo = row["Tiempo (h)"] # en horas
         
-        grafo.add_edge(origen,destino,distancia=distancia,tiempo=tiempo)
+#        grafo.add_edge(origen,destino,distancia=distancia,tiempo=tiempo)
     
-    return grafo
+#    return grafo
 
-grafo = grafo_completo(df_puerto)
+#grafo = grafo_completo(df_puerto)
+
+
+grafo = nx.from_pandas_edgelist(df_puerto, source="Nodo salida", target="Nodo llegada", edge_attr=["Distancia (km)", "Tiempo (h)"], create_using=nx.DiGraph())
+
+# Problema A
 
 def dijkstra_marcado(grafo, source):
     
     # [(distancia, tiempo, nodo, ruta)]
-    
+    2
     heap = [(0,0,source,[source])]
     
     visitados = dict()
@@ -53,9 +58,9 @@ def dijkstra_marcado(grafo, source):
             
             arco = grafo.get_edge_data(nodo, vecino)
             
-            distancia_nuevo = distancia + arco["distancia"]
+            distancia_nuevo = distancia + arco["Distancia (km)"]
             
-            tiempo_nuevo = tiempo + arco["tiempo"]
+            tiempo_nuevo = tiempo + arco["Tiempo (h)"]
             
             nodo_nuevo = vecino
             
@@ -71,6 +76,8 @@ print("Problema a)")
 print(orden_marcado)
 
 print("-------------------------")
+
+# Problema B
 
 def dijkstra_normal(grafo, source, target):
     
@@ -102,9 +109,9 @@ def dijkstra_normal(grafo, source, target):
             
             arco = grafo.get_edge_data(nodo, vecino)
             
-            distancia_nuevo = distancia + arco["distancia"]
+            distancia_nuevo = distancia + arco["Distancia (km)"]
             
-            tiempo_nuevo = tiempo + arco["tiempo"]
+            tiempo_nuevo = tiempo + arco["Tiempo (h)"]
             
             nodo_nuevo = vecino
             

@@ -143,6 +143,7 @@ def dijkstra_escalas(grafo, source, target):
         if nodo == target:
             
             distancia = sum(grafo[ruta[i]][ruta[i+1]]["distancia"] for i in range(len(ruta)-1))
+            
             costo = sum(grafo[ruta[i]][ruta[i+1]]["costo"] for i in range(len(ruta)-1))
             
             return ruta, costo, distancia
@@ -151,7 +152,7 @@ def dijkstra_escalas(grafo, source, target):
         
         clave = nodo
         
-        if clave in visitados and escala < visitados[clave]:
+        if clave in visitados and escala >= visitados[clave]:
             continue
         
         visitados[clave] = escala
@@ -160,8 +161,6 @@ def dijkstra_escalas(grafo, source, target):
             
             if vecino in ruta:
                 continue
-            
-            arco = grafo.get_edge_data(nodo, vecino)
             
             escala_nueva = escala + 1
             
@@ -195,7 +194,7 @@ def grafo_penalizacion (df_r):
     
     grafo = nx.DiGraph()
     
-    penalizadas = {"DTW", "DUL"}
+    penalizadas = ["DTW", "DUL"]
     
     for _, row in df_r.iterrows():
         
@@ -266,6 +265,7 @@ ruta_nombres = [dict_aeropuertos.get(code) for code in ruta]
 
 print("Problema d)")
 print(" -> ".join(ruta_nombres))
+print(f"Numero de escalas: {escalas}")
 print(f"Costo de la ruta: ${costo}")
 print(f"Distancia: {distancia} km")
             
