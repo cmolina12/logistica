@@ -8,10 +8,6 @@ df_r = pd.read_excel("Plantilla - Laboratorio 2.xlsx", sheet_name = "Punto1_Ruta
 
 df_c = pd.read_excel("Plantilla - Laboratorio 2.xlsx", sheet_name = "Punto1_Ciudades")
 
-print(df_r.head())
-
-print(df_c.head())
-
 
 # 1.1. Diseñar  un  grafo  dirigido  que  represente  la  red  completa  de  todas  rutas  disponibles,  donde  las  ciudades  serán  los  nodos  y  las  rutas  los  arcos.  Asegúrese  de  que  en  cada  arco  se  calcule  y  muestre explícitamente  el  costo  logístico  total  del  trayecto.  Insertar  la  imagen  del  grafo  generado  en  el  inciso correspondiente. 
 
@@ -62,41 +58,53 @@ plt.show()
 
 carga = 20 * 5
 
-autonomia = {}
+# 1. Las rutas no pueden ser utilizadas si el clima es “Tormenta”, sin importar el tipo de transporte.
+# 2. Rutas cuya ventana horaria sea menor a 8 horas disponibles se consideran no operativas y deben
+# ser descartadas.
+# 3. El transporte de vacunas debe realizarse exclusivamente en rutas con refrigeración disponible.
+# 4. El trayecto completo no puede incluir más de una estación con autonomía baja, ya que estas no
+# garantizan condiciones de transferencia seguras
+# 5. Si el envío excede la capacidad máxima de la ruta, se aplica una penalización del 15% adicional al
+# costo de esa ruta.
+
+dict_autonomia = {}
 
 for _, row in df_c.iterrows():
+    
     ciudad = row["Nombre"]
-    autonomia[ciudad] = row["Autonomia"]
+    autonomia = row["Autonomia"]
+    dict_autonomia[ciudad] = autonomia
+    
 
 def grafo_reducido(df_r):
     
-    G = nx.DiGraph()
+    grafo = nx.DiGraph()
     
     for _, row in df_r.iterrows():
         
-        origen = row['Origen']
-        destino = row['Destino']
-        tipo_transporte = row['Transporte']
-        clima = row['Clima']
-        ventana_horaria = row['Ventana_Horaria']
-        capacidad = float(row['Capacidad_Maxima_kg'])
-        distancia = float(row['Distancia_km'])
-        refrigeracion = row['Refrigeracion']
-        tiempo_estimado_horas = float(row['Tiempo_estimado_h'])
+        origen = row["Origen"]
+        destino = row["Destino"]
+        tipo_transporte = row["Transporte"]
+        clima = row["Clima"]
+        ventana_horaria = row["Ventana_Horaria"]
+        capacidad = row["Capacidad_Maxima_kg"]
+        distancia = row["Distancia_km"]
+        refrigeracion = row["Refrigeracion"]
+        tiempo_estimado = row["Tiempo_estimado_h"]
         
-        # Filtro 1 - No se puede clima "Tormenta"
+        # Restriccion 1 - No se puede "Tormenta"
         
         if clima == "Tormenta":
             continue
         
-        # Filtro 2 - Ventana horaria debe ser mayor o igual a 8 horas
+        # Restriccion 2 - Ventanas horarios menor a 8 horas
         
         inicio, fin = map(int, ventana_horaria.split("-"))
         
-        if fin - inicio < 8:
+        if (fin-inicio) < 8:
             continue
         
-        # Filtro 3 - Refrigreacion debe estar disponible
+        # Restriccion 3 - Refrigeracion
         
         if refrigeracion == "No":
             continue
@@ -107,99 +115,115 @@ def grafo_reducido(df_r):
             penalizacion = 0.15
         else:
             penalizacion = 0
-            
-        constante = (1 if tipo_transporte =="Camion" else 1.5 if tipo_transporte=="Barco" else 2)
+        
+        # Costo
+        
+        constante = (1 if tipo_transporte =="Camión" else 1.5 if tipo_transporte=="Barco" else 2)
         
         costo = (10 * distancia + 100 * constante) * (1+penalizacion)
+
         
-        G.add_edge(origen, 
+        # Añadir arcos
+        
+        grafo.add_edge(origen, 
                    destino, 
                    costo=costo,
                    distancia=distancia,
-                   tiempo=tiempo_estimado_horas,
+                   tiempo=tiempo_estimado,
                    transporte=tipo_transporte,
                    clima=clima,
                    ventana=ventana_horaria,
                    capacidad=capacidad,
                    refrigeracion=refrigeracion)
         
-        
-    for node in G.nodes():
-        G.nodes[node]["autonomia"] = autonomia.get(node, "Media")
-    
-    return G
-        
-grafo = grafo_reducido(df_r)
-
-# Dijkstra
+        for node in G.nodes():
+            
+            G.nodes[node]["autonomia"]= dict_autonomia.get(node)
+            
+    return grafo
 
 import heapq
 
-def dijkstra (G, source, target, ciudad_obligatoria):
+def dijkstra(grafo, source, target, ciudad_obligatoria):
     
-    def es_baja(nodo):
-        
-        return G.nodes[nodo]["autonomia"] == "Baja"
+    # (costo, tiempo, nodo, flag_medellin, contador_baja, ruta)
+    
+    flag_medellin = True if source == ciudad_obligatoria else False
+    contador_baja = 1 if dict_autonomia.get(source) == "Baja" else 0
     
     
-    medallo = 1 if source == ciudad_obligatoria else 0
-    
-    baja = 1 if es_baja(source) else 0 
-    
-    heap = [(0,0,source,medallo,baja,[source])]
+    heap = [(0,0,source, flag_medellin, contador_baja, [source])]
     
     visitados = dict()
     
     while heap:
         
-        costo_acumulado, tiempo_acumulado, nodo, medallo, baja, ruta = heapq.heappop(heap)
-        
-                
-        # Principio de optimalidad
-        
-        clave = (nodo, medallo, baja)
-        
-        if clave in visitados and visitados[clave] <= (costo_acumulado, tiempo_acumulado):
-            continue
-        
-        visitados[clave] = (costo_acumulado, tiempo_acumulado)
-        
+        costo_acumulado, tiempo_acumulado, nodo, flag_medellin, contador_baja, ruta = heapq.heappop(heap)
         
         # Principio de llegada
         
-        if nodo == target and medallo == 1 and baja <= 1:
+        if nodo == target and flag_medellin == True and contador_baja <= 1:
             
-            distancia = sum(G[ruta[i]][ruta[i+1]]['distancia'] for i in range(len(ruta)-1))
+            distancia = sum(grafo[ruta[i]][ruta[i+1]]['distancia'] for i in range(len(ruta)-1))
             
             return ruta, costo_acumulado, tiempo_acumulado, distancia
-
         
-        for vecino in G.neighbors(nodo):
+        # Principio de optimalidad
+
+        clave = (nodo, flag_medellin, contador_baja)
+        
+        if clave in visitados:
+            costo_prev, tiempo_prev = visitados[clave]
+            if (costo_acumulado, tiempo_acumulado) >= (costo_prev, tiempo_prev):
+                continue
+
+        visitados[clave] = (costo_acumulado, tiempo_acumulado)
+        
+        # Iterar sobre los vecinos
+        
+        for vecino in grafo.neighbors(nodo):
+            
+            # Evitar ciclos
             
             if vecino in ruta:
                 continue
             
-            arista = G.get_edge_data(nodo, vecino)
+            arco = grafo.get_edge_data(nodo, vecino)
             
-            costo_acumulado_nuevo = costo_acumulado + arista["costo"]
-            tiempo_acumulado_nuevo = tiempo_acumulado + arista["tiempo"]
+            
+            costo_nuevo = costo_acumulado + arco["costo"]
+            
+            tiempo_nuevo = tiempo_acumulado + arco["tiempo"]
+            
             nodo_nuevo = vecino
-            medallo_nuevo = 1 if (medallo or (vecino==ciudad_obligatoria)) else 0
-            baja_nuevo = baja + (1 if es_baja(vecino) else 0)
             
-            if baja_nuevo > 1:
+            flag_medellin_nuevo = flag_medellin or (vecino==ciudad_obligatoria)
+            
+            contador_baja_nuevo = contador_baja + (1 if dict_autonomia.get(vecino) == "Baja" else 0)
+            
+            if contador_baja_nuevo > 1:
                 continue
             
-            heapq.heappush(heap, (costo_acumulado_nuevo, tiempo_acumulado_nuevo, nodo_nuevo, medallo_nuevo, baja_nuevo, ruta + [vecino]))
-            
+            heapq.heappush(heap, (costo_nuevo, tiempo_nuevo, nodo_nuevo, flag_medellin_nuevo, contador_baja_nuevo, ruta + [nodo_nuevo]))
         
-    return None, float("inf"), float("inf"), float("inf")    
+    return None, float("inf"), float("inf"), float("inf")
+    
 
+grafo = grafo_reducido(df_r)
+print(list(grafo.nodes()))
+    
 ruta, costo, tiempo, distancia = dijkstra(grafo, "Bogotá", "Quito", "Medellín")
 
 print(ruta)
 print(costo)
 print(tiempo)
 print(distancia)
+            
+    
+            
+        
+
+  
     
     
+  
