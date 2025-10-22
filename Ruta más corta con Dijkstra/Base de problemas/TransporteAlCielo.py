@@ -235,7 +235,7 @@ def dijkstra_penalizacion(grafo, source, target):
         
         clave = nodo
         
-        if clave in visitados and costo > visitados[clave]:
+        if clave in visitados and costo >= visitados[clave]:
             continue
         
         visitados[clave] = costo
