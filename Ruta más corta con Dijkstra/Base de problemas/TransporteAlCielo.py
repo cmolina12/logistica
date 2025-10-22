@@ -75,7 +75,7 @@ def dijkstra(grafo, source, target):
         
         clave = nodo
         
-        if clave in visitados and costo_acumulado < visitados[clave]:
+        if clave in visitados and costo_acumulado >= visitados[clave]:
             continue
         visitados[clave] = costo_acumulado
         
